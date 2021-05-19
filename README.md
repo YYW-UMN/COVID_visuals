@@ -5,6 +5,9 @@
 * List of VOC/VOI like this
 * Data tables from the flu server
 
+### Parameters:
+* Time frame of calculation: 2 weeks
+
 ### Functions:
 **step 1**: join_dedup_meta_nextstrain.R       
 **step 2**: reformat_meta_to_powerBI.R                
