@@ -1,0 +1,70 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(pkgcond)
+library(odbc)
+library(DBI)
+library(implyr)
+library(dplyr)
+library(tidyr)
+library(Matrix)
+library(htmlwidgets)
+library(zoo)
+library(countrycode)
+library(ggplot2)
+library(plotly)
+library(RColorBrewer)
+library(dichromat)
+```
+# Preprocessing data 
+```{r}
+# Connect the flu server
+impala <- dbConnect(
+  odbc::odbc(),
+  .connection_string = "Driver={Cloudera ODBC Driver for Impala 64-bit};",
+  Host = "flu-hadoop-06.biotech.cdc.gov", 
+  database = 'sars_cov2',
+  Port = 21050
+)
+
+# Read in the voc voi mutation list
+vclist<- read.csv("variant_groups.csv") %>% rename(pango_lineage = lineage)   #  INPUT FILE
+variant_label <- vclist %>% filter(label == "VOI" | label == "VOC") 
+mutation_label <- vclist %>% filter(label != "VOI" & label != "VOC")
+
+# Join the dedup_primary table and the meta_analytics table to create a single data frame: meta
+meta <- join_dedup_meta_nextstrain(save_rds = FALSE)                # FUNCTION 1
+
+# Format meta table to be used in PowerBI
+bi <- suppress_warnings(reformat_meta_to_powerBI(meta))             # FUNCTION 2
+bi <- bi %>% 
+  left_join(variant_label, by = "pango_lineage") %>%
+  left_join(mutation_label, by = "pango_lineage") %>%
+  rename(type = label.x) %>%
+  rename(important_mutation = label.y) %>%
+  replace_na(list(type = "Other"))
+```
+# Calculate the prevalence and generate plot data in R and csv file for PowerBI
+```{r}
+ROLL = 1     # rolling average of x 2-weeks
+x2 <- generate_props_csv(vclist, ROLL, bi)                  # FUNCTION 3
+```
+```{r}
+p <- x2 %>% plot_ly(x = ~week, 
+               y = ~proportion, 
+               color = ~lineage_type, 
+               colors = colorRampPalette(brewer.pal(20,"Spectral"))(length(lineages)),
+               hoverinfo = 'text',
+               text = ~paste('</br> Lineage: ', lineage_type, 
+                             '</br> Proportion: ',Proportion, '%',
+                             '</br> Week: ', week)) %>%
+  add_bars() %>%
+  layout(barmode = "stack")
+htmlwidgets::saveWidget(as_widget(p), paste0("Interactive_stacked_barplot_of_variant_proportion_no_USA", Sys.Date(), ".html"))
+```
+
+
+
