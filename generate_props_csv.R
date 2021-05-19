@@ -38,7 +38,8 @@ generate_props_csv <- function(vclist, ROLL, bi){
     rename(type = label) %>%
     replace_na(list(type = "Other")) %>%
     unite(lineage_type, c("type","lineage")) %>%
-    mutate(lineage_type = replace(lineage_type, lineage_type == "Other_Other", "Other"))
+    mutate(lineage_type = replace(lineage_type, lineage_type == "Other_Other", "Other")) %>%
+    select(week, lineage_type, proportion, Proportion)
   
   write.csv(x2, file = paste0("lineage_prevalence_by_2week_",Sys.Date(),".csv"), row.names = FALSE)
   return(x2)
